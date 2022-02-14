@@ -1,0 +1,49 @@
+CREATE TABLE books(
+书号 nvarchar(50) NOT NULL PRIMARY KEY,
+书名 nvarchar(50) NOT NULL,
+作者 nvarchar(50) NOT NULL,
+出版社 nvarchar(50) NOT NULL,
+借阅数量 int NOT NULL,
+库存 int NOT NULL CHECK(库存 BETWEEN 0 AND 1000),
+超时收费 decimal(3, 2) NOT NULL,
+CHECK(借阅数量 BETWEEN 0 AND 库存),
+)
+
+CREATE TABLE users(
+账号 nvarchar(50) NOT NULL PRIMARY KEY,
+密码 nvarchar(50) NOT NULL,
+姓名 nvarchar(50),
+性别 nchar(2) CHECK(性别 IN ('男', '女', '保密')),
+借阅情况 int  NOT NULL CHECK(借阅情况 BETWEEN 0 AND 10),  
+管理权限 bit NOT NULL,
+)
+
+CREATE TABLE records(
+借阅账号 nvarchar(50) NOT NULL,
+借阅书号 nvarchar(50) NOT NULL,
+借阅日期 datetime,
+归还日期 datetime,
+是否归还 bit NOT NULL,
+借阅天数 int NOT NULL CHECK(借阅天数 BETWEEN 0 AND 90),
+FOREIGN KEY (借阅账号) REFERENCES users(账号),
+FOREIGN KEY (借阅书号) REFERENCES books(书号),
+PRIMARY KEY(借阅账号, 借阅书号, 是否归还, 借阅日期),
+)
+
+CREATE VIEW borrows AS
+SELECT 借阅账号, 借阅书号, 
+借阅日期, 借阅日期 + 借阅天数 AS 应还日期, 超时收费 AS [超时收费(元/天)],
+书名, 作者, 出版社 
+FROM records JOIN books ON records.借阅书号 = books.书号
+WHERE 是否归还 = 0
+
+CREATE VIEW [returns] AS
+SELECT 借阅账号, 借阅书号,
+借阅日期, 归还日期,
+CASE 
+WHEN (DATEDIFF(DAY, 借阅日期, 归还日期) > 借阅天数) THEN (DATEDIFF(DAY, 借阅日期, 归还日期) - 借阅天数) * 超时收费
+ELSE 0.00
+END AS 已缴费用,
+书名, 作者, 出版社 
+FROM records JOIN books ON records.借阅书号 = books.书号
+WHERE 是否归还 = 1
